@@ -160,5 +160,21 @@ cron.schedule(`*/${INTERVAL} * * * *`, () => {
 bot.launch();
 console.log(`🎉 Juerga bot arrancado — escaneando cada ${INTERVAL} min`);
 
+// Servidor HTTP mínimo para Render (health check + stats API)
+const http = require('http');
+const PORT = process.env.PORT || 3000;
+
+http.createServer((req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  if (req.url === '/api/stats') {
+    const count = notified.size;
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ count }));
+  } else {
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end('Juerga bot OK');
+  }
+}).listen(PORT, () => console.log(`[http] Servidor en puerto ${PORT}`));
+
 process.once('SIGINT', () => bot.stop('SIGINT'));
 process.once('SIGTERM', () => bot.stop('SIGTERM'));

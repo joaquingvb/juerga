@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Juerga — Entradas gratis en fiestas</title>
+  <meta name="description" content="Bot de Telegram que detecta entradas gratis en fiestas de Barcelona, Madrid y Valencia." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0a0f;
+      --bg2: #111118;
+      --card: #16161f;
+      --border: #2a2a3a;
+      --accent: #7c3aed;
+      --accent2: #a855f7;
+      --tg: #229ed9;
+      --text: #f0f0f8;
+      --muted: #888899;
+      --green: #22c55e;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── NAV ── */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 1rem 2rem;
+      background: rgba(10,10,15,0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-logo { font-weight: 900; font-size: 1.25rem; letter-spacing: -0.03em; }
+    .nav-logo span { color: var(--accent2); }
+    .nav-cta {
+      background: var(--tg); color: #fff;
+      padding: 0.5rem 1.2rem; border-radius: 99px;
+      text-decoration: none; font-weight: 600; font-size: 0.9rem;
+      transition: opacity .2s;
+    }
+    .nav-cta:hover { opacity: .85; }
+
+    /* ── HERO ── */
+    .hero {
+      min-height: 100vh;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      text-align: center;
+      padding: 7rem 1.5rem 4rem;
+      position: relative;
+    }
+    .hero::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(124,58,237,.18) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: .5rem;
+      background: rgba(124,58,237,.15); border: 1px solid rgba(124,58,237,.35);
+      color: var(--accent2); padding: .35rem .9rem; border-radius: 99px;
+      font-size: .8rem; font-weight: 600; letter-spacing: .04em;
+      text-transform: uppercase; margin-bottom: 1.5rem;
+    }
+    .hero-badge .dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 6px var(--green);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: .4; }
+    }
+    h1 {
+      font-size: clamp(2.8rem, 8vw, 5.5rem);
+      font-weight: 900;
+      line-height: 1.05;
+      letter-spacing: -0.04em;
+      max-width: 820px;
+    }
+    h1 .gradient {
+      background: linear-gradient(135deg, var(--accent2), #ec4899);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hero-sub {
+      margin-top: 1.25rem;
+      font-size: 1.1rem; color: var(--muted);
+      max-width: 500px; line-height: 1.65;
+    }
+    .hero-actions {
+      margin-top: 2.5rem;
+      display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center;
+    }
+    .btn-tg {
+      display: inline-flex; align-items: center; gap: .6rem;
+      background: var(--tg); color: #fff;
+      padding: .85rem 2rem; border-radius: 99px;
+      text-decoration: none; font-weight: 700; font-size: 1rem;
+      transition: transform .2s, box-shadow .2s;
+      box-shadow: 0 0 32px rgba(34,158,217,.3);
+    }
+    .btn-tg:hover { transform: translateY(-2px); box-shadow: 0 0 48px rgba(34,158,217,.45); }
+    .btn-tg svg { width: 22px; height: 22px; flex-shrink: 0; }
+    .btn-ghost {
+      display: inline-flex; align-items: center; gap: .5rem;
+      border: 1px solid var(--border); color: var(--muted);
+      padding: .85rem 1.8rem; border-radius: 99px;
+      text-decoration: none; font-weight: 600; font-size: 1rem;
+      transition: border-color .2s, color .2s;
+    }
+    .btn-ghost:hover { border-color: var(--accent2); color: var(--text); }
+
+    /* ── COUNTER ── */
+    .counter-section {
+      padding: 4rem 1.5rem;
+      display: flex; justify-content: center;
+    }
+    .counter-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 2.5rem 3rem;
+      text-align: center;
+      max-width: 640px; width: 100%;
+      position: relative;
+      overflow: hidden;
+    }
+    .counter-card::before {
+      content: '';
+      position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+      width: 60%; height: 1px;
+      background: linear-gradient(90deg, transparent, var(--accent2), transparent);
+    }
+    .counter-label {
+      font-size: .8rem; text-transform: uppercase; letter-spacing: .1em;
+      color: var(--muted); margin-bottom: .75rem;
+    }
+    .counter-number {
+      font-size: clamp(3.5rem, 10vw, 6rem);
+      font-weight: 900;
+      letter-spacing: -0.05em;
+      background: linear-gradient(135deg, var(--accent2), #ec4899);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      line-height: 1;
+    }
+    .counter-desc {
+      margin-top: .75rem;
+      color: var(--muted); font-size: .95rem;
+    }
+    .counter-cities {
+      margin-top: 1.5rem;
+      display: flex; gap: .75rem; justify-content: center; flex-wrap: wrap;
+    }
+    .city-pill {
+      background: rgba(124,58,237,.12); border: 1px solid rgba(124,58,237,.25);
+      color: var(--accent2); padding: .3rem .85rem;
+      border-radius: 99px; font-size: .8rem; font-weight: 600;
+    }
+
+    /* ── HOW IT WORKS ── */
+    .how-section {
+      padding: 5rem 1.5rem;
+      max-width: 960px; margin: 0 auto;
+    }
+    .section-title {
+      text-align: center;
+      font-size: clamp(1.8rem, 5vw, 2.8rem);
+      font-weight: 900; letter-spacing: -0.03em;
+      margin-bottom: 3rem;
+    }
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1.5rem;
+    }
+    .step {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1.75rem;
+      transition: border-color .2s;
+    }
+    .step:hover { border-color: rgba(124,58,237,.4); }
+    .step-num {
+      width: 40px; height: 40px; border-radius: 10px;
+      background: rgba(124,58,237,.15); border: 1px solid rgba(124,58,237,.3);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 900; color: var(--accent2); font-size: 1rem;
+      margin-bottom: 1rem;
+    }
+    .step h3 { font-size: 1rem; font-weight: 700; margin-bottom: .4rem; }
+    .step p { font-size: .9rem; color: var(--muted); line-height: 1.6; }
+
+    /* ── SOURCES ── */
+    .sources-section {
+      padding: 4rem 1.5rem;
+      max-width: 960px; margin: 0 auto;
+      text-align: center;
+    }
+    .sources-sub {
+      color: var(--muted); font-size: .95rem; margin-bottom: 2rem;
+    }
+    .source-list {
+      display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center;
+    }
+    .source-chip {
+      background: var(--card); border: 1px solid var(--border);
+      padding: .6rem 1.4rem; border-radius: 99px;
+      font-size: .9rem; font-weight: 600; color: var(--muted);
+      transition: color .2s, border-color .2s;
+    }
+    .source-chip:hover { color: var(--text); border-color: var(--accent2); }
+
+    /* ── CTA FINAL ── */
+    .cta-section {
+      padding: 5rem 1.5rem;
+      text-align: center;
+    }
+    .cta-box {
+      max-width: 600px; margin: 0 auto;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 3rem 2rem;
+      position: relative; overflow: hidden;
+    }
+    .cta-box::before {
+      content: '';
+      position: absolute; bottom: 0; left: 50%; transform: translateX(-50%);
+      width: 60%; height: 1px;
+      background: linear-gradient(90deg, transparent, var(--accent2), transparent);
+    }
+    .cta-box h2 {
+      font-size: clamp(1.6rem, 5vw, 2.2rem);
+      font-weight: 900; letter-spacing: -0.03em;
+      margin-bottom: .75rem;
+    }
+    .cta-box p { color: var(--muted); margin-bottom: 2rem; line-height: 1.6; }
+
+    /* ── FOOTER ── */
+    footer {
+      padding: 2rem 1.5rem;
+      text-align: center;
+      color: var(--muted); font-size: .85rem;
+      border-top: 1px solid var(--border);
+    }
+
+    @media (max-width: 600px) {
+      nav { padding: .75rem 1.25rem; }
+      .counter-card { padding: 2rem 1.5rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav>
+    <div class="nav-logo">Juerga<span>.</span></div>
+    <a href="https://t.me/JuergaBot" class="nav-cta">Abrir en Telegram</a>
+  </nav>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-badge">
+      <span class="dot"></span>
+      Escaneando ahora mismo
+    </div>
+    <h1>Entradas gratis<br /><span class="gradient">cuando las hay.</span></h1>
+    <p class="hero-sub">
+      Juerga monitoriza las webs de tickets en Barcelona, Madrid y Valencia
+      y te avisa en Telegram en cuanto aparece algo gratis.
+    </p>
+    <div class="hero-actions">
+      <a href="https://t.me/JuergaBot" class="btn-tg">
+        <svg viewBox="0 0 24 24" fill="currentColor">
+          <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
+        </svg>
+        Activar el bot gratis
+      </a>
+      <a href="#como-funciona" class="btn-ghost">Cómo funciona</a>
+    </div>
+  </section>
+
+  <!-- COUNTER -->
+  <section class="counter-section">
+    <div class="counter-card">
+      <div class="counter-label">Eventos gratis detectados hoy</div>
+      <div class="counter-number" id="counter">—</div>
+      <div class="counter-desc" id="counter-desc">Conectando con el bot...</div>
+      <div class="counter-cities">
+        <span class="city-pill">Barcelona</span>
+        <span class="city-pill">Madrid</span>
+        <span class="city-pill">Valencia</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- HOW IT WORKS -->
+  <section class="how-section" id="como-funciona">
+    <h2 class="section-title">Tres pasos, cero esfuerzo</h2>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">1</div>
+        <h3>Elige tu ciudad</h3>
+        <p>Dile a Juerga si estás en Barcelona, Madrid o Valencia. Solo una vez.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <h3>Marca tus géneros</h3>
+        <p>Techno, House, Reggaeton, Pop... los que quieras. Solo te avisamos de lo que te mola.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <h3>Recibe el aviso</h3>
+        <p>En cuanto detectamos una entrada gratis, te mandamos un mensaje con el enlace directo.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- SOURCES -->
+  <section class="sources-section">
+    <h2 class="section-title">Dónde buscamos</h2>
+    <p class="sources-sub">Monitorizamos estas plataformas de forma continua</p>
+    <div class="source-list">
+      <span class="source-chip">Xceed</span>
+      <span class="source-chip">El Tardet</span>
+      <span class="source-chip">Eventbrite</span>
+      <span class="source-chip">Más próximamente...</span>
+    </div>
+  </section>
+
+  <!-- CTA FINAL -->
+  <section class="cta-section">
+    <div class="cta-box">
+      <h2>¿A qué esperas?</h2>
+      <p>Es gratis, es Telegram y no te spamea. Solo te avisa cuando hay algo.</p>
+      <a href="https://t.me/JuergaBot" class="btn-tg">
+        <svg viewBox="0 0 24 24" fill="currentColor" style="width:20px;height:20px">
+          <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
+        </svg>
+        Activar Juerga en Telegram
+      </a>
+    </div>
+  </section>
+
+  <footer>
+    <p>Juerga &mdash; Hecho con ganas de fiesta 🕺 &mdash; No somos responsables de lo que hagas con las entradas gratis.</p>
+  </footer>
+
+  <script>
+    // Contador: intenta cargar de la API del bot; si falla, muestra mensaje
+    // Cuando el bot esté activo, crea un endpoint GET /api/stats que devuelva { count: N }
+    // y cambia API_URL por la URL real.
+    const API_URL = null; // e.g. 'https://tu-bot.railway.app/api/stats'
+
+    async function loadCounter() {
+      if (!API_URL) {
+        document.getElementById('counter').textContent = '?';
+        document.getElementById('counter-desc').textContent = 'Bot en preparación — pronto en directo';
+        return;
+      }
+      try {
+        const res = await fetch(API_URL);
+        const { count } = await res.json();
+        animateCounter(count);
+        document.getElementById('counter-desc').textContent =
+          count === 1 ? 'evento gratis detectado hoy' : 'eventos gratis detectados hoy';
+      } catch {
+        document.getElementById('counter').textContent = '?';
+        document.getElementById('counter-desc').textContent = 'No se pudo conectar con el bot';
+      }
+    }
+
+    function animateCounter(target) {
+      const el = document.getElementById('counter');
+      let current = 0;
+      const step = Math.max(1, Math.floor(target / 40));
+      const timer = setInterval(() => {
+        current = Math.min(current + step, target);
+        el.textContent = current;
+        if (current >= target) clearInterval(timer);
+      }, 30);
+    }
+
+    loadCounter();
+  </script>
+
+</body>
+</html>
