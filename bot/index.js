@@ -20,11 +20,11 @@ function getUser(ctx) {
 bot.start((ctx) => {
   const name = ctx.from.first_name || 'crack';
   ctx.reply(
-    `👋 ¡Hola, ${name}! Soy *Juerga*, tu detector de entradas gratis en fiestas 🎉\n\n` +
+    `👋 ¡Hola, ${name}! Soy <b>Juerga</b>, tu detector de entradas gratis en fiestas 🎉\n\n` +
     `Te aviso en cuanto aparezca algo gratis en tu ciudad.\n\n` +
     `¿Dónde estás?`,
     {
-      parse_mode: 'Markdown',
+      parse_mode: 'HTML',
       ...Markup.inlineKeyboard(
         CITIES.map((c) => Markup.button.callback(c, `city:${c}`))
       ),
@@ -38,8 +38,8 @@ bot.action(/^city:(.+)$/, (ctx) => {
   getUser(ctx).city = city;
   ctx.answerCbQuery();
   ctx.editMessageText(
-    `✅ ¡Listo!\n\n📍 Ciudad: *${city}*\n\nTe avisaré en cuanto encuentre entradas gratis. ¡A guardar el traje! 🕺\n\nUsa /eventos para buscar ahora mismo.`,
-    { parse_mode: 'Markdown' }
+    `✅ ¡Listo!\n\n📍 Ciudad: <b>${city}</b>\n\nTe avisaré en cuanto encuentre entradas gratis. ¡A guardar el traje! 🕺\n\nUsa /eventos para buscar ahora mismo.`,
+    { parse_mode: 'HTML' }
   );
 });
 
@@ -47,7 +47,7 @@ bot.action(/^city:(.+)$/, (ctx) => {
 bot.command('perfil', (ctx) => {
   const user = getUser(ctx);
   if (!user.city) return ctx.reply('Aún no has configurado tu ciudad. Usa /start.');
-  ctx.reply(`📍 Ciudad: *${user.city}*`, { parse_mode: 'Markdown' });
+  ctx.reply(`📍 Ciudad: <b>${user.city}</b>`, { parse_mode: 'HTML' });
 });
 
 // --- /cambiar ---
@@ -61,15 +61,15 @@ bot.command('eventos', async (ctx) => {
   const user = getUser(ctx);
   if (!user.city) return ctx.reply('Primero configura tu ciudad con /start.');
 
-  await ctx.reply(`🔍 Buscando entradas gratis en *${user.city}*...`, { parse_mode: 'Markdown' });
+  await ctx.reply(`🔍 Buscando entradas gratis en <b>${user.city}</b>...`, { parse_mode: 'HTML' });
   try {
     const events = await fetchFreeEvents(user.city);
     if (events.length === 0) {
       return ctx.reply('No he encontrado entradas gratis ahora mismo. Vuelve a intentarlo más tarde.');
     }
-    await ctx.reply(`Encontré *${events.length}* evento${events.length > 1 ? 's' : ''} gratis:`, { parse_mode: 'Markdown' });
+    await ctx.reply(`Encontré <b>${events.length}</b> evento${events.length > 1 ? 's' : ''} gratis:`, { parse_mode: 'HTML' });
     for (const e of events) {
-      await ctx.reply(formatEvent(e), { parse_mode: 'Markdown' })
+      await ctx.reply(formatEvent(e), { parse_mode: 'HTML' })
         .catch(err => console.error('[/eventos reply]', err.message));
     }
   } catch (err) {
@@ -101,7 +101,7 @@ async function runScrape() {
 
       const targets = Object.entries(users).filter(([, u]) => u.city === city);
       for (const [chatId] of targets) {
-        await bot.telegram.sendMessage(chatId, formatEvent(event), { parse_mode: 'Markdown' })
+        await bot.telegram.sendMessage(chatId, formatEvent(event), { parse_mode: 'HTML' })
           .catch((e) => console.error(`[notify] chatId ${chatId}:`, e.message));
       }
     }
@@ -109,7 +109,7 @@ async function runScrape() {
 }
 
 function esc(text) {
-  return String(text || '').replace(/[_*`[]/g, '\\$&');
+  return String(text || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 function formatEvent(e) {
@@ -117,12 +117,12 @@ function formatEvent(e) {
     ? e.date.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })
     : 'Fecha por confirmar';
   return (
-    `🎉 *Entrada gratis detectada*\n\n` +
-    `🎵 *${esc(e.title)}*\n` +
+    `🎉 <b>Entrada gratis detectada</b>\n\n` +
+    `🎵 <b>${esc(e.title)}</b>\n` +
     `📍 ${esc(e.venue)} — ${esc(e.city)}\n` +
     `📅 ${dateStr}\n` +
-    `🔗 [Ver evento](${e.url})\n` +
-    `_Fuente: ${esc(e.source)}_`
+    `🔗 <a href="${e.url}">Ver evento</a>\n` +
+    `<i>Fuente: ${esc(e.source)}</i>`
   );
 }
 
