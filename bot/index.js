@@ -101,7 +101,8 @@ bot.command('eventos', async (ctx) => {
       return ctx.reply('No he encontrado entradas gratis ahora mismo. Vuelve a intentarlo más tarde.');
     }
     for (const e of events) {
-      await ctx.reply(formatEvent(e), { parse_mode: 'Markdown' });
+      await ctx.reply(formatEvent(e), { parse_mode: 'Markdown' })
+        .catch(err => console.error('[/eventos reply]', err.message));
     }
   } catch (err) {
     ctx.reply('Error al buscar eventos. Inténtalo de nuevo.');
@@ -158,17 +159,22 @@ async function runScrape() {
   }
 }
 
+function esc(text) {
+  // Escapa caracteres especiales de Markdown v1 de Telegram
+  return String(text || '').replace(/[_*`[]/g, '\\$&');
+}
+
 function formatEvent(e) {
   const dateStr = e.date
     ? e.date.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })
     : 'Fecha por confirmar';
   return (
     `🎉 *Entrada gratis detectada*\n\n` +
-    `🎵 *${e.title}*\n` +
-    `📍 ${e.venue} — ${e.city}\n` +
+    `🎵 *${esc(e.title)}*\n` +
+    `📍 ${esc(e.venue)} — ${esc(e.city)}\n` +
     `📅 ${dateStr}\n` +
     `🔗 [Ver evento](${e.url})\n` +
-    `_Fuente: ${e.source}_`
+    `_Fuente: ${esc(e.source)}_`
   );
 }
 
