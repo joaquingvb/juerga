@@ -88,6 +88,27 @@ bot.command('perfil', (ctx) => {
   );
 });
 
+// --- /eventos — muestra eventos gratis ahora mismo ---
+bot.command('eventos', async (ctx) => {
+  const user = getUser(ctx);
+  if (!user.city) {
+    return ctx.reply('Primero configura tu ciudad con /start.');
+  }
+  await ctx.reply(`Buscando eventos gratis en *${user.city}*...`, { parse_mode: 'Markdown' });
+  try {
+    const events = await fetchFreeEvents(user.city);
+    if (events.length === 0) {
+      return ctx.reply('No he encontrado entradas gratis ahora mismo. Vuelve a intentarlo más tarde.');
+    }
+    for (const e of events) {
+      await ctx.reply(formatEvent(e), { parse_mode: 'Markdown' });
+    }
+  } catch (err) {
+    ctx.reply('Error al buscar eventos. Inténtalo de nuevo.');
+    console.error('[/eventos]', err.message);
+  }
+});
+
 // --- /cambiar — reiniciar onboarding ---
 bot.command('cambiar', (ctx) => {
   delete users[ctx.chat.id];
