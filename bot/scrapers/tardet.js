@@ -4,10 +4,15 @@ const BASE_URL = 'https://eltardet.es/';
 const FOURVENUES_BASE = 'https://www.fourvenues.com/iframe/el-tardet/';
 
 async function scrapeTardet() {
-  const browser = await puppeteer.launch({
+  const launchOptions = {
     headless: 'new',
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
-  });
+    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+  };
+  // En Render/Linux usa el Chrome del sistema si está disponible
+  if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+    launchOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+  }
+  const browser = await puppeteer.launch(launchOptions);
 
   try {
     const page = await browser.newPage();
