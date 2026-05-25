@@ -1,23 +1,38 @@
-let puppeteer;
-try { puppeteer = require('puppeteer'); } catch { puppeteer = null; }
-
 const BASE_URL = 'https://eltardet.es/';
 const FOURVENUES_BASE = 'https://www.fourvenues.com/iframe/el-tardet/';
 
+async function getBrowser() {
+  // En producción (Render) usamos @sparticuz/chromium + puppeteer-core
+  try {
+    const chromium = require('@sparticuz/chromium');
+    const puppeteerCore = require('puppeteer-core');
+    const executablePath = await chromium.executablePath();
+    return puppeteerCore.launch({
+      args: chromium.args,
+      executablePath,
+      headless: chromium.headless,
+      defaultViewport: chromium.defaultViewport,
+    });
+  } catch {
+    // En local usamos puppeteer normal
+    try {
+      const puppeteer = require('puppeteer');
+      return puppeteer.launch({
+        headless: 'new',
+        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+      });
+    } catch {
+      return null;
+    }
+  }
+}
+
 async function scrapeTardet() {
-  if (!puppeteer) {
-    console.warn('[Tardet] puppeteer no disponible, saltando');
+  const browser = await getBrowser();
+  if (!browser) {
+    console.warn('[Tardet] No hay navegador disponible, saltando');
     return [];
   }
-  const launchOptions = {
-    headless: 'new',
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
-  };
-  // En Render/Linux usa el Chrome del sistema si está disponible
-  if (process.env.PUPPETEER_EXECUTABLE_PATH) {
-    launchOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
-  }
-  const browser = await puppeteer.launch(launchOptions);
 
   try {
     const page = await browser.newPage();
@@ -25,7 +40,6 @@ async function scrapeTardet() {
     await page.goto(BASE_URL, { waitUntil: 'networkidle2', timeout: 30_000 });
     await page.waitForSelector('article.event-card', { timeout: 10_000 }).catch(() => {});
 
-    // 1. Recoge título, venue y URL de cada evento del listing
     const listings = await page.evaluate(() => {
       const results = [];
       document.querySelectorAll('article.event-card').forEach(el => {
@@ -39,17 +53,14 @@ async function scrapeTardet() {
       return results;
     });
 
-    // 2. Para cada evento, extrae la fecha y el ID de fourvenues del hash de la URL
     const freeEvents = [];
     for (const item of listings) {
       try {
         await page.goto(item.href, { waitUntil: 'networkidle2', timeout: 20_000 });
 
         const eventInfo = await page.evaluate(() => {
-          // Fecha
           const dateText = document.querySelector('time, [class*="date"], [class*="fecha"]')?.innerText.trim() || '';
 
-          // ID fourvenues: está en el hash de la URL (#events/XXXX) o en el src del iframe
           let fourvId = null;
           const hashMatch = location.hash.match(/#events\/([^/?]+)/);
           if (hashMatch) {
@@ -60,7 +71,6 @@ async function scrapeTardet() {
             if (srcMatch) fourvId = srcMatch[1];
           }
 
-          // También puede estar en el script src
           if (!fourvId) {
             const scriptSrc = document.querySelector('script[src*="fourvenues"]')?.src || '';
             const scriptMatch = scriptSrc.match(/fourvenues\.com\/assets\/iframe\/[^/]+\/([^/?]+)/);
@@ -75,7 +85,6 @@ async function scrapeTardet() {
           continue;
         }
 
-        // 3. Navega directamente a la URL del iframe de fourvenues
         const iframeUrl = `${FOURVENUES_BASE}${eventInfo.fourvId}`;
         await page.goto(iframeUrl, { waitUntil: 'networkidle2', timeout: 20_000 });
 
@@ -85,11 +94,8 @@ async function scrapeTardet() {
             /^0[,.]?00\s*€$/.test(p);
 
           const isSoldOut = (el) => {
-            // Sube: price-div → button → div.text-center → div.flex.gap-2 (la fila de botones)
-            // En esa fila hay un segundo button[disabled] cuando está agotado
             const row = el.parentElement?.parentElement?.parentElement;
             if (row?.querySelector('button[disabled]')) return true;
-            // Fallback: busca badge de peligro en el contenedor superior
             const card = row?.parentElement?.parentElement?.parentElement;
             return card?.querySelector('.bg-danger') != null;
           };
