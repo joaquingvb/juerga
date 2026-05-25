@@ -1,8 +1,0 @@
-[phases.setup]
-nixPkgs = ["nodejs_20", "chromium"]
-
-[phases.build]
-cmds = ["npm install"]
-
-[start]
-cmd = "node bot/index.js"

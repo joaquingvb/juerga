@@ -1,9 +1,14 @@
-const puppeteer = require('puppeteer');
+let puppeteer;
+try { puppeteer = require('puppeteer'); } catch { puppeteer = null; }
 
 const BASE_URL = 'https://eltardet.es/';
 const FOURVENUES_BASE = 'https://www.fourvenues.com/iframe/el-tardet/';
 
 async function scrapeTardet() {
+  if (!puppeteer) {
+    console.warn('[Tardet] puppeteer no disponible, saltando');
+    return [];
+  }
   const launchOptions = {
     headless: 'new',
     args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
