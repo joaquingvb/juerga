@@ -46,7 +46,7 @@ function normalise(e, city) {
     title: e.name || '',
     venue: e.venue?.name || '',
     date: e.startingTime?.date ? new Date(e.startingTime.date) : null,
-    url: `https://xceed.me/en/${slug}/events/${e.slug}`,
+    url: `https://xceed.me/en/${slug}/event/${e.slug}/${e.legacyId}`,
     genres: (e.lineup || []).map((a) => a.name),
     isFree: true,
   };
