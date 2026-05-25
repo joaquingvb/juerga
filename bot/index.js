@@ -5,27 +5,24 @@ const fetchFreeEvents = require('./scrapers');
 
 const bot = new Telegraf(process.env.BOT_TOKEN);
 
-// --- Almacén en memoria (sustituir por DB en producción) ---
-const users = {}; // chatId -> { city, genres }
-// Guarda los IDs de eventos ya notificados para no repetir
+const users = {}; // chatId -> { city }
 const notified = new Set();
 
 const CITIES = ['Barcelona', 'Madrid', 'Valencia'];
-const GENRES = ['Techno', 'House', 'Reggaeton', 'Pop', 'Hip-Hop', 'R&B', 'Latino', 'Electro'];
 
 function getUser(ctx) {
   const id = ctx.chat.id;
-  if (!users[id]) users[id] = { city: null, genres: [] };
+  if (!users[id]) users[id] = { city: null };
   return users[id];
 }
 
-// --- /start — bienvenida + elección de ciudad ---
+// --- /start ---
 bot.start((ctx) => {
   const name = ctx.from.first_name || 'crack';
   ctx.reply(
     `👋 ¡Hola, ${name}! Soy *Juerga*, tu detector de entradas gratis en fiestas 🎉\n\n` +
-    `Monitorizo *Xceed, Resident Advisor, Fever y Eventbrite* y te aviso cuando aparezca algo gratis.\n\n` +
-    `Primero dime: ¿en qué ciudad estás?`,
+    `Te aviso en cuanto aparezca algo gratis en tu ciudad.\n\n` +
+    `¿Dónde estás?`,
     {
       parse_mode: 'Markdown',
       ...Markup.inlineKeyboard(
@@ -41,65 +38,36 @@ bot.action(/^city:(.+)$/, (ctx) => {
   getUser(ctx).city = city;
   ctx.answerCbQuery();
   ctx.editMessageText(
-    `📍 Ciudad: *${city}*\n\nAhora elige tus géneros favoritos (puedes elegir varios) y pulsa *Listo* cuando acabes.`,
-    {
-      parse_mode: 'Markdown',
-      ...buildGenreKeyboard(ctx.chat.id),
-    }
-  );
-});
-
-// --- Selección de géneros (toggle) ---
-bot.action(/^genre:(.+)$/, (ctx) => {
-  const genre = ctx.match[1];
-  const user = getUser(ctx);
-  const idx = user.genres.indexOf(genre);
-  if (idx === -1) user.genres.push(genre);
-  else user.genres.splice(idx, 1);
-  ctx.answerCbQuery(`${user.genres.includes(genre) ? '✅' : '❌'} ${genre}`);
-  ctx.editMessageReplyMarkup(buildGenreKeyboard(ctx.chat.id).reply_markup);
-});
-
-// --- Confirmar géneros ---
-bot.action('done_genres', (ctx) => {
-  const user = getUser(ctx);
-  if (user.genres.length === 0) {
-    return ctx.answerCbQuery('Elige al menos un género 🎵', { show_alert: true });
-  }
-  ctx.answerCbQuery();
-  ctx.editMessageText(
-    `✅ ¡Perfecto!\n\n` +
-    `📍 Ciudad: *${user.city}*\n` +
-    `🎵 Géneros: ${user.genres.join(', ')}\n\n` +
-    `Te avisaré en cuanto encuentre entradas gratis. ¡A guardar el traje! 🕺`,
+    `✅ ¡Listo!\n\n📍 Ciudad: *${city}*\n\nTe avisaré en cuanto encuentre entradas gratis. ¡A guardar el traje! 🕺\n\nUsa /eventos para buscar ahora mismo.`,
     { parse_mode: 'Markdown' }
   );
 });
 
-// --- /perfil — ver configuración actual ---
+// --- /perfil ---
 bot.command('perfil', (ctx) => {
   const user = getUser(ctx);
-  if (!user.city) {
-    return ctx.reply('Aún no has configurado tu perfil. Usa /start para empezar.');
-  }
-  ctx.reply(
-    `Tu perfil actual:\n📍 Ciudad: *${user.city}*\n🎵 Géneros: ${user.genres.join(', ') || 'ninguno'}`,
-    { parse_mode: 'Markdown' }
-  );
+  if (!user.city) return ctx.reply('Aún no has configurado tu ciudad. Usa /start.');
+  ctx.reply(`📍 Ciudad: *${user.city}*`, { parse_mode: 'Markdown' });
 });
 
-// --- /eventos — muestra eventos gratis ahora mismo ---
+// --- /cambiar ---
+bot.command('cambiar', (ctx) => {
+  delete users[ctx.chat.id];
+  ctx.reply('Perfil borrado. Usa /start para configurarlo de nuevo.');
+});
+
+// --- /eventos ---
 bot.command('eventos', async (ctx) => {
   const user = getUser(ctx);
-  if (!user.city) {
-    return ctx.reply('Primero configura tu ciudad con /start.');
-  }
-  await ctx.reply(`Buscando eventos gratis en *${user.city}*...`, { parse_mode: 'Markdown' });
+  if (!user.city) return ctx.reply('Primero configura tu ciudad con /start.');
+
+  await ctx.reply(`🔍 Buscando entradas gratis en *${user.city}*...`, { parse_mode: 'Markdown' });
   try {
     const events = await fetchFreeEvents(user.city);
     if (events.length === 0) {
       return ctx.reply('No he encontrado entradas gratis ahora mismo. Vuelve a intentarlo más tarde.');
     }
+    await ctx.reply(`Encontré *${events.length}* evento${events.length > 1 ? 's' : ''} gratis:`, { parse_mode: 'Markdown' });
     for (const e of events) {
       await ctx.reply(formatEvent(e), { parse_mode: 'Markdown' })
         .catch(err => console.error('[/eventos reply]', err.message));
@@ -110,26 +78,7 @@ bot.command('eventos', async (ctx) => {
   }
 });
 
-// --- /cambiar — reiniciar onboarding ---
-bot.command('cambiar', (ctx) => {
-  delete users[ctx.chat.id];
-  ctx.reply('Perfil borrado. Usa /start para configurarlo de nuevo.');
-});
-
-// --- Helper: teclado de géneros con estado visual ---
-function buildGenreKeyboard(chatId) {
-  const selected = users[chatId]?.genres || [];
-  const buttons = GENRES.map((g) =>
-    Markup.button.callback(`${selected.includes(g) ? '✅ ' : ''}${g}`, `genre:${g}`)
-  );
-  // 2 columnas
-  const rows = [];
-  for (let i = 0; i < buttons.length; i += 2) rows.push(buttons.slice(i, i + 2));
-  rows.push([Markup.button.callback('Listo ✔️', 'done_genres')]);
-  return Markup.inlineKeyboard(rows);
-}
-
-// --- Cron: escanea eventos gratis y notifica ---
+// --- Cron ---
 const INTERVAL = parseInt(process.env.SCRAPE_INTERVAL_MINUTES || '30', 10);
 
 async function runScrape() {
@@ -150,7 +99,7 @@ async function runScrape() {
       if (notified.has(key)) continue;
       notified.add(key);
 
-      const targets = Object.entries(users).filter(([, u]) => u.city === city && u.genres.length > 0);
+      const targets = Object.entries(users).filter(([, u]) => u.city === city);
       for (const [chatId] of targets) {
         await bot.telegram.sendMessage(chatId, formatEvent(event), { parse_mode: 'Markdown' })
           .catch((e) => console.error(`[notify] chatId ${chatId}:`, e.message));
@@ -160,7 +109,6 @@ async function runScrape() {
 }
 
 function esc(text) {
-  // Escapa caracteres especiales de Markdown v1 de Telegram
   return String(text || '').replace(/[_*`[]/g, '\\$&');
 }
 
@@ -178,7 +126,6 @@ function formatEvent(e) {
   );
 }
 
-// Arranca el cron — expresión: cada N minutos
 cron.schedule(`*/${INTERVAL} * * * *`, () => {
   console.log(`[cron] Escaneando eventos (cada ${INTERVAL} min)...`);
   runScrape();
@@ -187,16 +134,14 @@ cron.schedule(`*/${INTERVAL} * * * *`, () => {
 bot.launch();
 console.log(`🎉 Juerga bot arrancado — escaneando cada ${INTERVAL} min`);
 
-// Servidor HTTP mínimo para Render (health check + stats API)
 const http = require('http');
 const PORT = process.env.PORT || 3000;
 
 http.createServer((req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   if (req.url === '/api/stats') {
-    const count = notified.size;
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ count }));
+    res.end(JSON.stringify({ count: notified.size }));
   } else {
     res.writeHead(200, { 'Content-Type': 'text/plain' });
     res.end('Juerga bot OK');
